@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEM MT 10 3D Graded Slab Showcase</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Orbitron:wght@500;700;800;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            overflow: hidden;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        .font-retro { font-family: 'Press Start 2P', cursive; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(245, 158, 11, 0.8);
+        }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glow-amber {
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.25);
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.25);
+        }
+
+        /* Texture Generation Canvases (Hidden offscreen) */
+        .texture-canvas {
+            display: none;
+        }
+
+        /* Shimmer Button Effect */
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .btn-shimmer {
+            background: linear-gradient(90deg, #f59e0b, #fef08a, #f59e0b, #d97706);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+        }
+
+        /* Pulsing Glow Animation */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 4s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen relative select-none overflow-hidden bg-slate-950">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- Hidden Offscreen Canvases for Dynamic Texture Rendering -->
+    <canvas id="card-front-canvas" width="1000" height="1400" class="texture-canvas"></canvas>
+    <canvas id="card-back-canvas" width="1000" height="1400" class="texture-canvas"></canvas>
+    <canvas id="label-canvas" width="1100" height="380" class="texture-canvas"></canvas>
+    <canvas id="foil-pattern-canvas" width="512" height="512" class="texture-canvas"></canvas>
+
+    <!-- Ambient Radial Lighting Glow Background -->
+    <div class="absolute inset-0 pointer-events-none flex items-center justify-center z-0">
+        <div class="w-[600px] h-[600px] rounded-full bg-gradient-to-tr from-amber-500/15 via-indigo-600/10 to-cyan-500/15 blur-3xl animate-pulse-glow"></div>
+    </div>
+
+    <!-- Top Header Overlay Bar -->
+    <header class="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-center pointer-events-none">
+        <div class="flex items-center gap-3 pointer-events-auto glass-panel px-4 py-2.5 rounded-2xl shadow-2xl">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg">
+                <i class="fa-solid fa-gem"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-orbitron font-extrabold text-lg text-amber-400 tracking-wider">GEM MT 10</h1>
+                    <span class="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold border border-amber-500/30">3D SLAB SHOWCASE</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Interactive Birthday Collector's Edition</p>
+            </div>
+        </div>
+
+        <!-- Top Right Action Controls -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <button id="btn-birthday-fx" class="btn-shimmer text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition">
+                <i class="fa-solid fa-cake-candles text-base"></i>
+                <span>UNVEIL BIRTHDAY FX</span>
+            </button>
+            <button id="btn-toggle-panel" class="glass-panel text-slate-200 hover:text-white px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-2 shadow-lg transition hover:bg-slate-800">
+                <i class="fa-solid fa-sliders text-amber-400"></i>
+                <span class="hidden md:inline">Customizer Studio</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Sidebar Studio Customizer Drawer -->
+    <aside id="customizer-panel" class="absolute top-20 right-4 bottom-20 z-30 w-full max-w-md glass-panel rounded-2xl shadow-2xl flex flex-col transition-all duration-300 transform translate-x-0 overflow-hidden border border-slate-700/60">
+        <!-- Panel Header -->
+        <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/80">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                <h2 class="font-orbitron text-xs font-extrabold tracking-wider text-white">SLAB & CARD STUDIO</h2>
+            </div>
+            <button id="btn-close-panel" class="text-slate-400 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-800 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Scrollable Studio Settings -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-5 text-xs">
+
+            <!-- 1. Slab & Grading Company Label Style -->
+            <div class="space-y-2">
+                <label class="font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-tag text-amber-400"></i> Grading Slab Label Style
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button data-label="psa" class="label-style-btn active bg-slate-800 border-2 border-amber-500 rounded-xl p-2.5 text-left flex items-center gap-2.5 hover:bg-slate-700 transition">
+                        <div class="w-3 h-8 bg-red-600 rounded-sm"></div>
+                        <div>
+                            <div class="font-bold text-white">PSA Classic</div>
+                            <div class="text-[10px] text-slate-400">Red Frame • Gem MT 10</div>
+                        </div>
+                    </button>
+                    <button data-label="bgs" class="label-style-btn bg-slate-800/60 border border-slate-700 rounded-xl p-2.5 text-left flex items-center gap-2.5 hover:bg-slate-700 transition">
+                        <div class="w-3 h-8 bg-amber-400 rounded-sm"></div>
+                        <div>
+                            <div class="font-bold text-white">Beckett BGS</div>
+                            <div class="text-[10px] text-slate-400">Gold Brushed • Subgrades</div>
+                        </div>
+                    </button>
+                    <button data-label="cgc" class="label-style-btn bg-slate-800/60 border border-slate-700 rounded-xl p-2.5 text-left flex items-center gap-2.5 hover:bg-slate-700 transition">
+                        <div class="w-3 h-8 bg-cyan-500 rounded-sm"></div>
+                        <div>
+                            <div class="font-bold text-white">CGC Mint</div>
+                            <div class="text-[10px] text-slate-400">Cyan Banner • 10.0</div>
+                        </div>
+                    </button>
+                    <button data-label="birthday" class="label-style-btn bg-slate-800/60 border border-slate-700 rounded-xl p-2.5 text-left flex items-center gap-2.5 hover:bg-slate-700 transition">
+                        <div class="w-3 h-8 bg-gradient-to-b from-amber-300 to-yellow-600 rounded-sm"></div>
+                        <div>
+                            <div class="font-bold text-amber-300">Birthday Gold</div>
+                            <div class="text-[10px] text-slate-400">Crown Seal • Secret</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Card Theme Presets -->
+            <div class="space-y-2 pt-2 border-t border-slate-800">
+                <label class="font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-palette text-amber-400"></i> Card Layout Template
+                </label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-theme="pokemon" class="theme-btn active bg-slate-800 border-2 border-amber-500 rounded-xl p-2 text-center flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-bolt text-yellow-400 text-base"></i>
+                        <span class="font-bold">TCG Hero</span>
+                    </button>
+                    <button data-theme="sports" class="theme-btn bg-slate-800/60 border border-slate-700 rounded-xl p-2 text-center flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-baseball-bat-ball text-blue-400 text-base"></i>
+                        <span class="font-bold">Sports MVP</span>
+                    </button>
+                    <button data-theme="cyber" class="theme-btn bg-slate-800/60 border border-slate-700 rounded-xl p-2 text-center flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-microchip text-cyan-400 text-base"></i>
+                        <span class="font-bold">Cyber Gold</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. Photo Upload & Artwork Controls -->
+            <div class="space-y-3 pt-2 border-t border-slate-800">
+                <label class="font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-image text-amber-400"></i> Card Photo & Crop Adjustment
+                </label>
+                
+                <div class="flex gap-2">
+                    <label for="artwork-input" class="flex-1 bg-slate-900 hover:bg-slate-800 border border-dashed border-slate-600 rounded-xl p-2.5 text-center cursor-pointer transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-amber-400"></i>
+                        <span class="font-semibold text-slate-200">Upload Photo</span>
+                        <input type="file" id="artwork-input" accept="image/*" class="hidden">
+                    </label>
+                </div>
+
+                <!-- Sample Preset Avatars -->
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] text-slate-500 font-bold">Samples:</span>
+                    <button data-avatar="champion" class="avatar-preset-btn bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2 py-1 rounded-lg text-[10px] font-semibold">👑 Champion</button>
+                    <button data-avatar="cyber" class="avatar-preset-btn bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2 py-1 rounded-lg text-[10px] font-semibold">🤖 Cyber</button>
+                    <button data-avatar="legend" class="avatar-preset-btn bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2 py-1 rounded-lg text-[10px] font-semibold">🐉 Dragon</button>
+                </div>
+
+                <!-- Zoom & Position Sliders -->
+                <div class="grid grid-cols-3 gap-2 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                    <div>
+                        <span class="text-[9px] text-slate-400 font-bold block mb-1">ZOOM</span>
+                        <input type="range" id="input-art-zoom" min="0.5" max="2.5" step="0.05" value="1.0" class="w-full accent-amber-500">
+                    </div>
+                    <div>
+                        <span class="text-[9px] text-slate-400 font-bold block mb-1">OFFSET X</span>
+                        <input type="range" id="input-art-x" min="-200" max="200" step="5" value="0" class="w-full accent-amber-500">
+                    </div>
+                    <div>
+                        <span class="text-[9px] text-slate-400 font-bold block mb-1">OFFSET Y</span>
+                        <input type="range" id="input-art-y" min="-200" max="200" step="5" value="0" class="w-full accent-amber-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Friend Identity & Card Stats -->
+            <div class="space-y-3 pt-2 border-t border-slate-800">
+                <label class="font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-id-card text-amber-400"></i> Card Identity & Stats
+                </label>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1">FRIEND'S NAME</span>
+                        <input type="text" id="input-friend-name" value="ALEX THE LEGEND" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 font-bold text-white focus:outline-none focus:border-amber-400">
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1">HP / POWER</span>
+                        <input type="text" id="input-card-hp" value="9999 HP" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 font-bold text-amber-400 focus:outline-none focus:border-amber-400">
+                    </div>
+                </div>
+
+                <div>
+                    <span class="text-[10px] text-slate-400 font-bold block mb-1">TITLE / CLASS</span>
+                    <input type="text" id="input-card-subtitle" value="Ultimate Birthday MVP" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 font-semibold text-slate-200 focus:outline-none focus:border-amber-400">
+                </div>
+
+                <!-- Custom Moves -->
+                <div class="space-y-2">
+                    <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="flex gap-2">
+                            <input type="text" id="input-move1-name" value="Unstoppable Vibe" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-bold text-amber-300">
+                            <input type="text" id="input-move1-dmg" value="150" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-bold text-center text-rose-400">
+                        </div>
+                        <input type="text" id="input-move1-desc" value="Radiates positive energy and instant good humor to everyone." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400">
+                    </div>
+
+                    <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="flex gap-2">
+                            <input type="text" id="input-move2-name" value="Birthday Overdrive" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-bold text-amber-300">
+                            <input type="text" id="input-move2-dmg" value="9000+" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-bold text-center text-rose-400">
+                        </div>
+                        <input type="text" id="input-move2-desc" value="Unlocks infinite cake level power and guaranteed victory." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400">
+                    </div>
+                </div>
+
+                <div>
+                    <span class="text-[10px] text-slate-400 font-bold block mb-1">PERSONAL FLAVOR TEXT / GREETING</span>
+                    <textarea id="input-flavor-text" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-slate-300 focus:outline-none focus:border-amber-400">Happy Birthday to the absolute best friend! Rated GEM MT 10 for legendary loyalty and greatness.</textarea>
+                </div>
+            </div>
+
+            <!-- 5. Holographic Foil & Slab Material Customization -->
+            <div class="space-y-3 pt-2 border-t border-slate-800">
+                <label class="font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-sparkles text-amber-400"></i> Foil Pattern & Slab Tint
+                </label>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1">FOIL PATTERN</span>
+                        <select id="select-foil-pattern" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 font-bold text-amber-300">
+                            <option value="cosmos">Cosmos Stars</option>
+                            <option value="starburst">Starburst Rays</option>
+                            <option value="diagonal">Diagonal Prism</option>
+                            <option value="wave">Liquid Wave</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1">SLAB GLASS TINT</span>
+                        <select id="select-slab-tint" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 font-bold text-slate-200">
+                            <option value="clear">Crystal Clear</option>
+                            <option value="smoked">Smoked Diamond</option>
+                            <option value="gold">Golden Luxe</option>
+                            <option value="cyber">Cyber Cyan</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Grading Label Cert Details -->
+            <div class="space-y-2 pt-2 border-t border-slate-800">
+                <label class="font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-barcode text-amber-400"></i> Certificate Details
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1">YEAR / EDITION</span>
+                        <input type="text" id="input-cert-year" value="2026 BIRTHDAY ED." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-white">
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1">CERT #</span>
+                        <input type="text" id="input-cert-no" value="#88392026" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 font-mono text-amber-400">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Panel Footer Buttons -->
+        <div class="p-3 border-t border-slate-800 bg-slate-950 flex gap-2">
+            <button id="btn-reset-defaults" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl font-bold transition">
+                Reset Defaults
+            </button>
+            <button id="btn-download-image" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 py-2.5 rounded-xl font-black transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-camera"></i> Take Snapshot
+            </button>
+        </div>
+    </aside>
+
+    <!-- Bottom Interactive Control HUD Bar -->
+    <footer class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 glass-panel p-2 rounded-2xl shadow-2xl max-w-[95vw] overflow-x-auto">
+        <!-- 180 Flip Button -->
+        <button id="btn-flip-slab" class="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-amber-500 hover:text-slate-950 text-slate-200 text-xs font-bold flex items-center gap-2 transition shadow">
+            <i class="fa-solid fa-rotate text-amber-400"></i>
+            <span>Flip 180°</span>
+        </button>
+
+        <!-- Auto Rotate Toggle -->
+        <button id="btn-auto-rotate" class="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-2 transition shadow">
+            <i class="fa-solid fa-circle-notch text-cyan-400"></i>
+            <span id="rotate-status-text">Auto Rotate: ON</span>
+        </button>
+
+        <!-- Lighting Mode Toggle -->
+        <button id="btn-lighting-mode" class="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-2 transition shadow">
+            <i class="fa-solid fa-lightbulb text-amber-300"></i>
+            <span id="lighting-status-text">Studio Lights</span>
+        </button>
+
+        <!-- Reset Camera -->
+        <button id="btn-reset-cam" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold transition shadow" title="Reset View">
+            <i class="fa-solid fa-arrows-to-dot"></i>
+        </button>
+    </footer>
+
+    <!-- Birthday Celebration Banner Modal -->
+    <div id="birthday-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden transition-opacity duration-300">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full text-center space-y-5 border-2 border-amber-500/50 glow-amber relative overflow-hidden">
+            <button id="btn-close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="w-20 h-20 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-full flex items-center justify-center text-slate-950 text-4xl mx-auto shadow-xl animate-bounce">
+                👑
+            </div>
+            <div class="space-y-1">
+                <h3 class="font-orbitron font-extrabold text-2xl text-amber-400">GEM MT 10 BIRTHDAY!</h3>
+                <p id="modal-friend-greeting" class="text-base text-slate-200 font-semibold">To the ultimate legend!</p>
+            </div>
+            <p id="modal-flavor-preview" class="text-xs text-slate-300 bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 italic">
+                "Happy Birthday to the absolute best friend! Rated GEM MT 10 for legendary loyalty and greatness."
+            </p>
+            <div class="flex gap-3 pt-2">
+                <button id="btn-copy-wish" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-copy"></i> Copy Wish Text
+                </button>
+                <button id="btn-modal-confetti" class="flex-1 btn-shimmer text-slate-950 py-3 rounded-xl font-black text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cake-candles"></i> Burst Confetti!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Popup -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 glass-panel px-4 py-2.5 rounded-xl border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2 shadow-2xl opacity-0 pointer-events-none transition-all duration-300">
+        <i class="fa-solid fa-check-circle text-amber-400"></i>
+        <span id="toast-msg">Card details updated!</span>
+    </div>
+
+    <script>
+        const cardState = {
+            labelStyle: 'psa', // psa, bgs, cgc, birthday
+            theme: 'pokemon',  // pokemon, sports, cyber
+            friendName: 'ALEX THE LEGEND',
+            hp: '9999 HP',
+            subtitle: 'Ultimate Birthday MVP',
+            move1Name: 'Unstoppable Vibe',
+            move1Dmg: '150',
+            move1Desc: 'Radiates positive energy and instant good humor to everyone.',
+            move2Name: 'Birthday Overdrive',
+            move2Dmg: '9000+',
+            move2Desc: 'Unlocks infinite cake level power and guaranteed victory.',
+            certYear: '2026 BIRTHDAY ED.',
+            certNo: '#88392026',
+            rarity: 'SECRET RARE ⭐⭐⭐',
+            flavorText: 'Happy Birthday to the absolute best friend! Rated GEM MT 10 for legendary loyalty and greatness.',
+            foilPattern: 'cosmos', // cosmos, starburst, diagonal, wave
+            slabTint: 'clear', // clear, smoked, gold, cyber
+            artZoom: 1.0,
+            artOffsetX: 0,
+            artOffsetY: 0,
+            autoRotate: true,
+            lightingMode: 'studio'
+        };
+
+        const presetAvatars = {
+            champion: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=600&auto=format&fit=crop&q=80',
+            cyber: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+            legend: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80'
+        };
+
+        let uploadedImageObj = new Image();
+        uploadedImageObj.crossOrigin = 'anonymous';
+        uploadedImageObj.src = presetAvatars.champion;
+        uploadedImageObj.onload = () => {
+            renderCardFrontCanvas();
+        };
+
+        function renderCardFrontCanvas() {
+            const canvas = document.getElementById('card-front-canvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if (cardState.theme === 'pokemon') {
+                renderPokemonStyle(ctx, w, h);
+            } else if (cardState.theme === 'sports') {
+                renderSportsStyle(ctx, w, h);
+            } else if (cardState.theme === 'cyber') {
+                renderCyberStyle(ctx, w, h);
+            }
+
+            // Render Holographic Foil Texture Overlay
+            renderFoilOverlay(ctx, w, h);
+
+            if (window.cardFrontTexture) {
+                window.cardFrontTexture.needsUpdate = true;
+            }
+        }
+
+        function renderFoilOverlay(ctx, w, h) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'color-dodge';
+            ctx.globalAlpha = 0.25;
+
+            if (cardState.foilPattern === 'cosmos') {
+                // Cosmos Sparkle Stars
+                ctx.fillStyle = '#ffffff';
+                for (let i = 0; i < 120; i++) {
+                    const x = (i * 137.5) % w;
+                    const y = (i * 293.3) % h;
+                    const r = (i % 5) + 2;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (cardState.foilPattern === 'starburst') {
+                // Radial Sunburst Lines
+                const cx = w / 2, cy = h / 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                for (let a = 0; a < Math.PI * 2; a += Math.PI / 16) {
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.lineTo(cx + Math.cos(a) * w, cy + Math.sin(a) * h);
+                    ctx.stroke();
+                }
+            } else if (cardState.foilPattern === 'diagonal') {
+                // 45 Degree Foil Grid Lines
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                for (let x = -h; x < w + h; x += 35) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x + h, h);
+                    ctx.stroke();
+                }
+            } else if (cardState.foilPattern === 'wave') {
+                // Sine Wave Curves
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 5;
+                for (let y = 0; y < h; y += 40) {
+                    ctx.beginPath();
+                    for (let x = 0; x < w; x += 10) {
+                        const waveY = y + Math.sin(x * 0.02) * 20;
+                        if (x === 0) ctx.moveTo(x, waveY);
+                        else ctx.lineTo(x, waveY);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function renderPokemonStyle(ctx, w, h) {
+            // Gold Outer Bezel Border
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(0, 0, w, h);
+
+            // Dark Navy Inner Frame
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(35, 35, w - 70, h - 70);
+
+            // Card Gradient Background
+            const grad = ctx.createLinearGradient(0, 0, w, h);
+            grad.addColorStop(0, '#1e1b4b');
+            grad.addColorStop(0.5, '#311042');
+            grad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(45, 45, w - 90, h - 90);
+
+            // Name Banner
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            ctx.beginPath();
+            ctx.roundRect(65, 65, w - 130, 90, 16);
+            ctx.fill();
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Name & HP
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 42px "Orbitron", sans-serif';
+            ctx.fillText(cardState.friendName.toUpperCase(), 90, 125);
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.font = '900 38px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(cardState.hp, w - 90, 125);
+            ctx.textAlign = 'left';
+
+            // Photo Artwork Frame
+            const artX = 65, artY = 175, artW = w - 130, artH = 500;
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(artX - 4, artY - 4, artW + 8, artH + 8);
+
+            drawCroppedArtwork(ctx, artX, artY, artW, artH);
+
+            // Subtitle Banner
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(artX, artY + artH - 45, artW, 45);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(cardState.subtitle, w / 2, artY + artH - 15);
+            ctx.textAlign = 'left';
+
+            // Custom Move 1
+            const m1Y = 705;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+            ctx.beginPath();
+            ctx.roundRect(65, m1Y, w - 130, 155, 14);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+            ctx.stroke();
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '800 32px "Orbitron", sans-serif';
+            ctx.fillText(cardState.move1Name, 90, m1Y + 48);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 36px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(cardState.move1Dmg, w - 90, m1Y + 48);
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '500 22px "Plus Jakarta Sans", sans-serif';
+            wrapText(ctx, cardState.move1Desc, 90, m1Y + 92, w - 180, 28);
+
+            // Custom Move 2
+            const m2Y = 880;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+            ctx.beginPath();
+            ctx.roundRect(65, m2Y, w - 130, 155, 14);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+            ctx.stroke();
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.font = '800 32px "Orbitron", sans-serif';
+            ctx.fillText(cardState.move2Name, 90, m2Y + 48);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 36px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(cardState.move2Dmg, w - 90, m2Y + 48);
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '500 22px "Plus Jakarta Sans", sans-serif';
+            wrapText(ctx, cardState.move2Desc, 90, m2Y + 92, w - 180, 28);
+
+            // Flavor Greeting Box
+            const fY = 1055;
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.9)';
+            ctx.beginPath();
+            ctx.roundRect(65, fY, w - 130, 120, 12);
+            ctx.fill();
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fef08a';
+            ctx.font = 'italic 500 20px "Plus Jakarta Sans", sans-serif';
+            wrapText(ctx, `"${cardState.flavorText}"`, 85, fY + 42, w - 170, 26);
+
+            // Rarity Footer
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '800 22px "Orbitron", sans-serif';
+            ctx.fillText(cardState.rarity, 65, 1225);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '700 18px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('BIRTHDAY NO. 001/2026', w - 65, 1225);
+            ctx.textAlign = 'left';
+        }
+
+        function renderSportsStyle(ctx, w, h) {
+            // Chrome Silver Outer Frame
+            const grad = ctx.createLinearGradient(0, 0, w, h);
+            grad.addColorStop(0, '#f8fafc');
+            grad.addColorStop(0.5, '#64748b');
+            grad.addColorStop(1, '#cbd5e1');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Navy Body
+            ctx.fillStyle = '#0b1329';
+            ctx.fillRect(30, 30, w - 60, h - 60);
+
+            // Diagonal Sports Stripes
+            ctx.fillStyle = '#1e3a8a';
+            ctx.beginPath();
+            ctx.moveTo(30, 200); ctx.lineTo(w - 30, 50); ctx.lineTo(w - 30, 150); ctx.lineTo(30, 300); ctx.fill();
+
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.moveTo(30, 280); ctx.lineTo(w - 30, 130); ctx.lineTo(w - 30, 190); ctx.lineTo(30, 340); ctx.fill();
+
+            // Photo Window
+            const artX = 55, artY = 160, artW = w - 110, artH = 600;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(artX - 4, artY - 4, artW + 8, artH + 8);
+
+            drawCroppedArtwork(ctx, artX, artY, artW, artH);
+
+            // Player Name Overlay
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+            ctx.fillRect(30, 780, w - 60, 130);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(30, 780, w - 60, 130);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 48px "Orbitron", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(cardState.friendName.toUpperCase(), w / 2, 840);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '800 24px "Orbitron", sans-serif';
+            ctx.fillText(`★ ALL-STAR MVP • ${cardState.subtitle.toUpperCase()} ★`, w / 2, 885);
+            ctx.textAlign = 'left';
+
+            // Stats Grid
+            const gridY = 930;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(55, gridY, w - 110, 180);
+
+            const cols = [
+                { label: 'POWER', val: cardState.move1Dmg },
+                { label: 'LOYALTY', val: '100%' },
+                { label: 'VIBES', val: cardState.move2Dmg },
+                { label: 'GRADE', val: 'GEM 10' }
+            ];
+
+            const colW = (w - 110) / 4;
+            cols.forEach((col, i) => {
+                const cx = 55 + i * colW;
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '800 18px "Orbitron", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(col.label, cx + colW / 2, gridY + 50);
+
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = '900 32px "Orbitron", sans-serif';
+                ctx.fillText(col.val, cx + colW / 2, gridY + 120);
+            });
+            ctx.textAlign = 'left';
+
+            // Footer
+            ctx.fillStyle = '#ef4444';
+            ctx.font = '900 26px "Orbitron", sans-serif';
+            ctx.fillText(cardState.rarity, 55, 1170);
+        }
+
+        function renderCyberStyle(ctx, w, h) {
+            ctx.fillStyle = '#050811';
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(35, 35, w - 70, h - 70);
+
+            // Header Banner
+            ctx.fillStyle = '#172033';
+            ctx.fillRect(55, 55, w - 110, 100);
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(55, 55, w - 110, 100);
+
+            ctx.fillStyle = '#06b6d4';
+            ctx.font = '900 42px "Orbitron", sans-serif';
+            ctx.fillText(cardState.friendName.toUpperCase(), 85, 120);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 38px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(cardState.hp, w - 85, 120);
+            ctx.textAlign = 'left';
+
+            // Photo Frame
+            const artX = 55, artY = 175, artW = w - 110, artH = 550;
+            drawCroppedArtwork(ctx, artX, artY, artW, artH);
+
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(artX, artY, artW, artH);
+
+            // Cyber Abilities
+            const m1Y = 755;
+            ctx.fillStyle = 'rgba(6, 182, 212, 0.1)';
+            ctx.fillRect(55, m1Y, w - 110, 160);
+            ctx.strokeStyle = '#06b6d4';
+            ctx.strokeRect(55, m1Y, w - 110, 160);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '800 30px "Orbitron", sans-serif';
+            ctx.fillText(`> ${cardState.move1Name}`, 75, m1Y + 50);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 34px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(cardState.move1Dmg, w - 75, m1Y + 50);
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+            wrapText(ctx, cardState.move1Desc, 75, m1Y + 95, w - 150, 26);
+
+            // Move 2 Cyber
+            const m2Y = 935;
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.1)';
+            ctx.fillRect(55, m2Y, w - 110, 160);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.strokeRect(55, m2Y, w - 110, 160);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '800 30px "Orbitron", sans-serif';
+            ctx.fillText(`> ${cardState.move2Name}`, 75, m2Y + 50);
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.font = '900 34px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(cardState.move2Dmg, w - 75, m2Y + 50);
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+            wrapText(ctx, cardState.move2Desc, 75, m2Y + 95, w - 150, 26);
+        }
+
+        function drawCroppedArtwork(ctx, x, y, w, h) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+
+            if (uploadedImageObj.complete && uploadedImageObj.naturalWidth > 0) {
+                const imgRatio = uploadedImageObj.width / uploadedImageObj.height;
+                const frameRatio = w / h;
+                let drawW, drawH, drawX, drawY;
+
+                if (imgRatio > frameRatio) {
+                    drawH = h * cardState.artZoom;
+                    drawW = drawH * imgRatio;
+                } else {
+                    drawW = w * cardState.artZoom;
+                    drawH = drawW / imgRatio;
+                }
+
+                drawX = x + (w - drawW) / 2 + parseFloat(cardState.artOffsetX);
+                drawY = y + (h - drawH) / 2 + parseFloat(cardState.artOffsetY);
+
+                ctx.drawImage(uploadedImageObj, drawX, drawY, drawW, drawH);
+            } else {
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(x, y, w, h);
+            }
+            ctx.restore();
+        }
+
+        function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+            const words = text.split(' ');
+            let line = '';
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && n > 0) {
+                    ctx.fillText(line, x, y);
+                    line = words[n] + ' ';
+                    y += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            ctx.fillText(line, x, y);
+        }
+
+        function renderCardBackCanvas() {
+            const canvas = document.getElementById('card-back-canvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 12;
+            ctx.strokeRect(40, 40, w - 80, h - 80);
+
+            const cx = w / 2, cy = h / 2;
+            const grad = ctx.createRadialGradient(cx, cy, 50, cx, cy, 320);
+            grad.addColorStop(0, '#38bdf8');
+            grad.addColorStop(0.5, '#1e1b4b');
+            grad.addColorStop(1, '#090d16');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 320, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 52px "Orbitron", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('BIRTHDAY', cx, cy - 30);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 36px "Orbitron", sans-serif';
+            ctx.fillText('CERTIFIED COLLECTIBLE', cx, cy + 30);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '700 24px "Orbitron", sans-serif';
+            ctx.fillText('GENUINE GEM MT 10', cx, cy + 80);
+            ctx.textAlign = 'left';
+
+            if (window.cardBackTexture) {
+                window.cardBackTexture.needsUpdate = true;
+            }
+        }
+
+        function renderLabelCanvas() {
+            const canvas = document.getElementById('label-canvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if (cardState.labelStyle === 'psa') {
+                renderPsaLabel(ctx, w, h);
+            } else if (cardState.labelStyle === 'bgs') {
+                renderBgsLabel(ctx, w, h);
+            } else if (cardState.labelStyle === 'cgc') {
+                renderCgcLabel(ctx, w, h);
+            } else if (cardState.labelStyle === 'birthday') {
+                renderBirthdayGoldLabel(ctx, w, h);
+            }
+
+            if (window.labelTexture) {
+                window.labelTexture.needsUpdate = true;
+            }
+        }
+
+        function renderPsaLabel(ctx, w, h) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.fillStyle = '#dc2626';
+            ctx.fillRect(0, 0, w, 24);
+            ctx.fillRect(0, h - 24, w, 24);
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = '#dc2626';
+            ctx.strokeRect(10, 10, w - 20, h - 20);
+
+            ctx.fillStyle = '#1e3a8a';
+            ctx.fillRect(30, 40, 320, h - 80);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 38px "Orbitron", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('PSA 10', 190, 105);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 48px "Orbitron", sans-serif';
+            ctx.fillText('GEM MT', 190, 175);
+
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = '800 22px "Orbitron", sans-serif';
+            ctx.fillText('PERFECT GRADE', 190, 220);
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '800 30px "Orbitron", sans-serif';
+            ctx.fillText(cardState.certYear, 380, 80);
+
+            ctx.fillStyle = '#dc2626';
+            ctx.font = '900 36px "Orbitron", sans-serif';
+            ctx.fillText(cardState.friendName.toUpperCase(), 380, 130);
+
+            ctx.fillStyle = '#334155';
+            ctx.font = '700 24px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText(cardState.subtitle, 380, 175);
+
+            drawBarcode(ctx, 380, h - 75, w - 440, 35);
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 22px monospace';
+            ctx.fillText(cardState.certNo, 380, h - 15);
+        }
+
+        function renderBgsLabel(ctx, w, h) {
+            const grad = ctx.createLinearGradient(0, 0, w, h);
+            grad.addColorStop(0, '#fef08a');
+            grad.addColorStop(0.5, '#eab308');
+            grad.addColorStop(1, '#ca8a04');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.strokeStyle = '#854d0e';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(10, 10, w - 20, h - 20);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(30, 30, 320, h - 60);
+
+            ctx.fillStyle = '#fef08a';
+            ctx.font = '900 48px "Orbitron", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('10', 190, 110);
+            ctx.font = '800 28px "Orbitron", sans-serif';
+            ctx.fillText('PRISTINE', 190, 160);
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '900 32px "Orbitron", sans-serif';
+            ctx.fillText(cardState.friendName.toUpperCase(), 380, 75);
+
+            ctx.font = '700 22px "Orbitron", sans-serif';
+            ctx.fillText('CENT: 10  CORN: 10  EDGE: 10  SURF: 10', 380, 125);
+
+            drawBarcode(ctx, 380, h - 85, w - 440, 35);
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 22px monospace';
+            ctx.fillText(cardState.certNo, 380, h - 25);
+        }
+
+        function renderCgcLabel(ctx, w, h) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(0, 0, w, 70);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 38px "Orbitron", sans-serif';
+            ctx.fillText('CGC CARDS', 30, 50);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '900 36px "Orbitron", sans-serif';
+            ctx.fillText(cardState.friendName.toUpperCase(), 30, 130);
+
+            ctx.fillStyle = '#0284c7';
+            ctx.font = '900 52px "Orbitron", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('10.0', w - 40, 140);
+            ctx.font = '800 20px "Orbitron", sans-serif';
+            ctx.fillText('GEM MINT', w - 40, 175);
+            ctx.textAlign = 'left';
+
+            drawBarcode(ctx, 30, h - 70, 400, 30);
+        }
+
+        function renderBirthdayGoldLabel(ctx, w, h) {
+            const grad = ctx.createLinearGradient(0, 0, w, h);
+            grad.addColorStop(0, '#1e1b4b');
+            grad.addColorStop(0.5, '#311042');
+            grad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(10, 10, w - 20, h - 20);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '900 42px "Orbitron", sans-serif';
+            ctx.fillText('👑 BIRTHDAY GEM 10', 40, 75);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 34px "Orbitron", sans-serif';
+            ctx.fillText(cardState.friendName.toUpperCase(), 40, 135);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '700 22px "Plus Jakarta Sans", sans-serif';
+            ctx.fillText(`SPECIAL 1ST EDITION • ${cardState.certNo}`, 40, 185);
+
+            drawBarcode(ctx, 40, h - 75, w - 100, 35);
+        }
+
+        function drawBarcode(ctx, x, y, w, h) {
+            ctx.fillStyle = '#000000';
+            for (let bx = x; bx < x + w; bx += Math.floor(Math.random() * 8) + 4) {
+                const bw = Math.floor(Math.random() * 4) + 2;
+                ctx.fillRect(bx, y, bw, h);
+            }
+        }
+
+        let scene, camera, renderer, controls;
+        let slabGroup, cardMesh, slabMesh;
+        let light1, light2;
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x030712, 0.08);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 9);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.25;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 16;
+            controls.minDistance = 4;
+            controls.autoRotate = cardState.autoRotate;
+            controls.autoRotateSpeed = 2.0;
+
+            // Load Canvas Textures
+            window.cardFrontTexture = new THREE.CanvasTexture(document.getElementById('card-front-canvas'));
+            window.cardFrontTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            window.cardBackTexture = new THREE.CanvasTexture(document.getElementById('card-back-canvas'));
+            window.cardBackTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            window.labelTexture = new THREE.CanvasTexture(document.getElementById('label-canvas'));
+            window.labelTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            slabGroup = new THREE.Group();
+            scene.add(slabGroup);
+
+            // Acrylic Slab Shell
+            const slabGeo = createRoundedBoxGeometry(3.2, 5.2, 0.35, 0.15, 4);
+            const slabMat = getSlabMaterial(cardState.slabTint);
+
+            slabMesh = new THREE.Mesh(slabGeo, slabMat);
+            slabMesh.castShadow = true;
+            slabMesh.receiveShadow = true;
+            slabGroup.add(slabMesh);
+
+            // Card Inside Slab
+            const cardGeo = new THREE.BoxGeometry(2.4, 3.4, 0.02);
+            const cardFrontMat = new THREE.MeshPhysicalMaterial({
+                map: window.cardFrontTexture,
+                roughness: 0.15,
+                metalness: 0.2,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                iridescence: 1.0,
+                iridescenceIOR: 1.4,
+                iridescenceThicknessRange: [100, 400]
+            });
+            const cardBackMat = new THREE.MeshStandardMaterial({
+                map: window.cardBackTexture,
+                roughness: 0.3
+            });
+            const cardEdgeMat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b,
+                metalness: 0.8
+            });
+
+            cardMesh = new THREE.Mesh(cardGeo, [
+                cardEdgeMat, cardEdgeMat, cardEdgeMat, cardEdgeMat, cardFrontMat, cardBackMat
+            ]);
+            cardMesh.position.set(0, -0.6, 0);
+            slabGroup.add(cardMesh);
+
+            // Slab Label
+            const labelGeo = new THREE.BoxGeometry(2.7, 0.95, 0.02);
+            const labelMat = new THREE.MeshStandardMaterial({
+                map: window.labelTexture,
+                roughness: 0.2
+            });
+            const labelMesh = new THREE.Mesh(labelGeo, labelMat);
+            labelMesh.position.set(0, 1.75, 0);
+            slabGroup.add(labelMesh);
+
+            // Display Pedestal Base
+            const pedGeo = new THREE.CylinderGeometry(2.2, 2.6, 0.3, 32);
+            const pedMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.8 });
+            const pedestal = new THREE.Mesh(pedGeo, pedMat);
+            pedestal.position.set(0, -3.2, 0);
+            pedestal.receiveShadow = true;
+            scene.add(pedestal);
+
+            // Pedestal Glow Ring
+            const ringGeo = new THREE.TorusGeometry(2.3, 0.04, 16, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.set(0, -3.04, 0);
+            scene.add(ring);
+
+            setupLights();
+
+            renderCardFrontCanvas();
+            renderCardBackCanvas();
+            renderLabelCanvas();
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function getSlabMaterial(tint) {
+            let colorVal = 0xffffff;
+            if (tint === 'smoked') colorVal = 0x334155;
+            if (tint === 'gold') colorVal = 0xfef08a;
+            if (tint === 'cyber') colorVal = 0x67e8f9;
+
+            return new THREE.MeshPhysicalMaterial({
+                color: colorVal,
+                transparent: true,
+                opacity: 0.35,
+                roughness: 0.05,
+                metalness: 0.1,
+                transmission: 0.92,
+                ior: 1.52,
+                reflectivity: 0.9,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.05,
+                side: THREE.DoubleSide
+            });
+        }
+
+        function setupLights() {
+            const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambient);
+
+            const keyLight = new THREE.DirectionalLight(0xfff5ea, 1.8);
+            keyLight.position.set(5, 8, 5);
+            keyLight.castShadow = true;
+            scene.add(keyLight);
+
+            const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
+            rimLight.position.set(-5, -2, -5);
+            scene.add(rimLight);
+
+            light1 = new THREE.PointLight(0xf59e0b, 2.0, 10);
+            light1.position.set(2, 2, 4);
+            scene.add(light1);
+
+            light2 = new THREE.PointLight(0x06b6d4, 1.5, 10);
+            light2.position.set(-2, -1, 3);
+            scene.add(light2);
+        }
+
+        function createRoundedBoxGeometry(width, height, depth, radius, smoothness) {
+            const shape = new THREE.Shape();
+            const w = width / 2 - radius;
+            const h = height / 2 - radius;
+
+            shape.moveTo(-w, h + radius);
+            shape.lineTo(w, h + radius);
+            shape.quadraticCurveTo(w + radius, h + radius, w + radius, h);
+            shape.lineTo(w + radius, -h);
+            shape.quadraticCurveTo(w + radius, -h - radius, w, -h - radius);
+            shape.lineTo(-w, -h - radius);
+            shape.quadraticCurveTo(-w - radius, -h - radius, -w - radius, -h);
+            shape.lineTo(-w - radius, h);
+            shape.quadraticCurveTo(-w - radius, h + radius, -w, h + radius);
+
+            const extrudeSettings = {
+                depth: depth,
+                bevelEnabled: true,
+                bevelSegments: smoothness,
+                steps: 1,
+                bevelSize: radius * 0.5,
+                bevelThickness: radius * 0.5
+            };
+
+            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geo.center();
+            return geo;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.02;
+
+            controls.update();
+
+            if (light1) {
+                light1.position.x = Math.sin(time * 0.8) * 3;
+                light1.position.y = Math.cos(time * 0.6) * 3;
+            }
+            if (light2) {
+                light2.position.x = Math.cos(time * 0.7) * 3;
+                light2.position.z = Math.sin(time * 0.9) * 4;
+            }
+
+            if (slabGroup && controls.state === -1) {
+                slabGroup.position.y = Math.sin(time * 0.5) * 0.08;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function playChimeSound() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, index) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.1);
+                    
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime + index * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.1 + 0.6);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    
+                    osc.start(ctx.currentTime + index * 0.1);
+                    osc.stop(ctx.currentTime + index * 0.1 + 0.6);
+                });
+            } catch(e) {}
+        }
+
+        function setupUIListeners() {
+            // Sidebar Toggle
+            const panel = document.getElementById('customizer-panel');
+            document.getElementById('btn-toggle-panel').addEventListener('click', () => {
+                panel.classList.toggle('translate-x-full');
+            });
+            document.getElementById('btn-close-panel').addEventListener('click', () => {
+                panel.classList.add('translate-x-full');
+            });
+
+            // Label Style Selector Buttons
+            document.querySelectorAll('.label-style-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.label-style-btn').forEach(b => b.classList.remove('active', 'border-amber-500'));
+                    const target = e.currentTarget;
+                    target.classList.add('active', 'border-amber-500');
+                    cardState.labelStyle = target.dataset.label;
+                    renderLabelCanvas();
+                    showToast(`Slab label updated to ${target.dataset.label.toUpperCase()}`);
+                });
+            });
+
+            // Theme Buttons
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active', 'border-amber-500'));
+                    const target = e.currentTarget;
+                    target.classList.add('active', 'border-amber-500');
+                    cardState.theme = target.dataset.theme;
+                    renderCardFrontCanvas();
+                    showToast(`Theme set to ${target.dataset.theme.toUpperCase()}`);
+                });
+            });
+
+            // Input Bindings
+            const bindInput = (id, prop, callback) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('input', (e) => {
+                    cardState[prop] = e.target.value;
+                    if (callback) callback();
+                });
+            };
+
+            bindInput('input-friend-name', 'friendName', () => { renderCardFrontCanvas(); renderLabelCanvas(); });
+            bindInput('input-card-hp', 'hp', renderCardFrontCanvas);
+            bindInput('input-card-subtitle', 'subtitle', () => { renderCardFrontCanvas(); renderLabelCanvas(); });
+            bindInput('input-move1-name', 'move1Name', renderCardFrontCanvas);
+            bindInput('input-move1-dmg', 'move1Dmg', renderCardFrontCanvas);
+            bindInput('input-move1-desc', 'move1Desc', renderCardFrontCanvas);
+            bindInput('input-move2-name', 'move2Name', renderCardFrontCanvas);
+            bindInput('input-move2-dmg', 'move2Dmg', renderCardFrontCanvas);
+            bindInput('input-move2-desc', 'move2Desc', renderCardFrontCanvas);
+            bindInput('input-cert-year', 'certYear', renderLabelCanvas);
+            bindInput('input-cert-no', 'certNo', renderLabelCanvas);
+            bindInput('input-flavor-text', 'flavorText', renderCardFrontCanvas);
+            bindInput('input-art-zoom', 'artZoom', renderCardFrontCanvas);
+            bindInput('input-art-x', 'artOffsetX', renderCardFrontCanvas);
+            bindInput('input-art-y', 'artOffsetY', renderCardFrontCanvas);
+
+            document.getElementById('select-foil-pattern').addEventListener('change', (e) => {
+                cardState.foilPattern = e.target.value;
+                renderCardFrontCanvas();
+                showToast(`Foil pattern: ${e.target.value.toUpperCase()}`);
+            });
+
+            document.getElementById('select-slab-tint').addEventListener('change', (e) => {
+                cardState.slabTint = e.target.value;
+                if (slabMesh) {
+                    slabMesh.material = getSlabMaterial(cardState.slabTint);
+                }
+                showToast(`Slab tint: ${e.target.value.toUpperCase()}`);
+            });
+
+            // Photo Upload
+            document.getElementById('artwork-input').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        uploadedImageObj = new Image();
+                        uploadedImageObj.onload = () => {
+                            renderCardFrontCanvas();
+                            showToast('Photo uploaded!');
+                        };
+                        uploadedImageObj.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Sample Avatars
+            document.querySelectorAll('.avatar-preset-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const key = e.target.dataset.avatar;
+                    if (presetAvatars[key]) {
+                        uploadedImageObj = new Image();
+                        uploadedImageObj.crossOrigin = 'anonymous';
+                        uploadedImageObj.onload = () => {
+                            renderCardFrontCanvas();
+                            showToast('Sample avatar loaded!');
+                        };
+                        uploadedImageObj.src = presetAvatars[key];
+                    }
+                });
+            });
+
+            // 180° Flip Button
+            let isFlipped = false;
+            document.getElementById('btn-flip-slab').addEventListener('click', () => {
+                isFlipped = !isFlipped;
+                const startTime = performance.now();
+                const duration = 800;
+
+                function animateFlip(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+                    
+                    slabGroup.rotation.y = easeProgress * Math.PI * (isFlipped ? 1 : 0);
+                    if (progress < 1) {
+                        requestAnimationFrame(animateFlip);
+                    }
+                }
+                requestAnimationFrame(animateFlip);
+            });
+
+            // Auto Rotate Toggle
+            document.getElementById('btn-auto-rotate').addEventListener('click', () => {
+                cardState.autoRotate = !cardState.autoRotate;
+                controls.autoRotate = cardState.autoRotate;
+                document.getElementById('rotate-status-text').innerText = `Auto Rotate: ${cardState.autoRotate ? 'ON' : 'OFF'}`;
+            });
+
+            // Celebrate Birthday FX Button
+            document.getElementById('btn-birthday-fx').addEventListener('click', triggerBirthdayCelebration);
+            document.getElementById('btn-modal-confetti').addEventListener('click', triggerBirthdayCelebration);
+
+            document.getElementById('btn-close-modal').addEventListener('click', () => {
+                document.getElementById('birthday-modal').classList.add('hidden');
+            });
+
+            // Copy Wish Text
+            document.getElementById('btn-copy-wish').addEventListener('click', () => {
+                const text = `🎉 Happy Birthday ${cardState.friendName}! You were awarded an Official GEM MT 10 Collector's Trading Card! "${cardState.flavorText}"`;
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('Wish copied to clipboard!');
+                }).catch(() => showToast('Wish text copied!'));
+            });
+
+            // Snapshot PNG Export
+            document.getElementById('btn-download-image').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const dataURL = renderer.domElement.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `${cardState.friendName.replace(/\s+/g, '_')}_GEM_10_Slab.png`;
+                link.href = dataURL;
+                link.click();
+                showToast('Snapshot downloaded!');
+            });
+
+            // Reset Camera
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                camera.position.set(0, 0, 9);
+                controls.target.set(0, 0, 0);
+                slabGroup.rotation.set(0, 0, 0);
+            });
+        }
+
+        function triggerBirthdayCelebration() {
+            playChimeSound();
+
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                setTimeout(() => {
+                    confetti({ particleCount: 80, angle: 60, spread: 55, origin: { x: 0 } });
+                    confetti({ particleCount: 80, angle: 120, spread: 55, origin: { x: 1 } });
+                }, 250);
+            }
+
+            document.getElementById('modal-friend-greeting').innerText = `Happy Birthday ${cardState.friendName}!`;
+            document.getElementById('modal-flavor-preview').innerText = `"${cardState.flavorText}"`;
+            document.getElementById('birthday-modal').classList.remove('hidden');
+        }
+
+        let toastTimeout;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+
+        window.addEventListener('load', () => {
+            init3D();
+            setupUIListeners();
+        });
+    </script>
+</body>
+</html>
